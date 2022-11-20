@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import personService from "./services/persons";
+import Notification from "./components/Notification";
 const App = () => {
   const [persons, setPersons] = useState([]);
   const [newName, setNewName] = useState("");
   const [newNumber, setNewNumber] = useState("");
   const [newFilter, setNewFilter] = useState("");
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   useEffect(() => {
     personService.getAll().then((response) => {
@@ -48,6 +51,10 @@ const App = () => {
       setPersons(persons.concat(newPerson));
       setNewName("");
       setNewNumber("");
+      setSuccessMessage(`Added ${newPerson.name}`);
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
     });
   };
 
@@ -66,16 +73,31 @@ const App = () => {
   };
 
   const handleDeleteNumber = (id) => {
-    personService.deleteNumber(id).then((initialNotes) => {
-      console.log(persons);
-
-      setPersons(persons.filter((person) => person.id !== id));
-    });
+    personService
+      .deleteNumber(id)
+      .then((initialNotes) => {
+        setPersons(persons.filter((person) => person.id !== id));
+      })
+      .catch((error) => {
+        console.log(error);
+        setErrorMessage(
+          `Information of ${
+            persons.find((person) => person.id === id).name
+          } has already been removed from server`
+        );
+        setTimeout(() => {
+          setErrorMessage(null);
+        }, 3000);
+      });
   };
 
   return (
     <div>
       <h2>Phonebook</h2>
+      <Notification
+        errorMessage={errorMessage}
+        successMessage={successMessage}
+      />
       <div>
         filter shown with <input value={newFilter} onChange={handleNewFilter} />
       </div>
