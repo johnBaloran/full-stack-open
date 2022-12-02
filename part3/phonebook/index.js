@@ -1,13 +1,21 @@
+require("dotenv").config();
 const express = require("express");
-const morgan = require("morgan");
-
-morgan.token("body", (req) => {
-  console.log(req);
-  return JSON.stringify(req.body);
-});
 const app = express();
+const Person = require("./models/person");
+const cors = require("cors");
+app.use(cors());
 app.use(express.json());
-app.use(morgan("tiny :body"));
+app.use(express.static("build"));
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message);
+
+  if (error.name === "CastError") {
+    return response.status(400).send({ error: "malformatted id" });
+  }
+
+  next(error);
+};
 
 let persons = [
   {
@@ -37,52 +45,83 @@ let persons = [
   },
 ];
 
-app.get("/api/persons", (request, response) => {
-  response.json(persons);
+app.get("/api/persons", (request, response, next) => {
+  Person.find({})
+    .then((persons) => {
+      response.json(persons);
+    })
+    .catch((error) => next(error));
 });
 
 app.get("/api/info", (request, response) => {
-  const numOfPersons = persons.length;
-  response.send(
-    `<h1>Phonebook has info for ${numOfPersons} people</h1><p>${new Date()}</p>`
-  );
+  Person.find({})
+    .then((persons) => {
+      response.send(
+        `<h1>Phonebook has info for ${
+          persons.length
+        } people</h1><p>${new Date()}</p>`
+      );
+    })
+    .catch((error) => next(error));
 });
 
-app.get("/api/persons/:id", (request, response) => {
-  console.log(request.params.id);
-  const person = persons.find(
-    (person) => person.id === Number(request.params.id)
-  );
-
-  if (!person) {
-    return response.status(404).end();
-  }
-  response.json(person);
+app.get("/api/persons/:id", (request, response, next) => {
+  Person.findById(request.params.id)
+    .then((person) => {
+      if (!person) {
+        return response.status(404).end();
+      }
+      response.json(person);
+    })
+    .catch((error) => next(error));
 });
 
 app.delete("/api/persons/:id", (request, response) => {
-  const filteredPersons = persons.filter(
-    (person) => person.id !== Number(request.params.id)
-  );
-
-  response.json(filteredPersons);
+  Person.findByIdAndRemove(request.params.id)
+    .then((result) => {
+      console.log(result);
+      response.status(204).end();
+    })
+    .catch((error) => next(error));
 });
 
-const generateId = () => {
-  const maxId = Math.max(...persons.map((n) => n.id)) + 1;
-  return maxId > 0 ? maxId : 1;
-};
+app.put("/api/persons/:id", (request, response, next) => {
+  const body = request.body;
+
+  const person = {
+    name: body.name,
+    number: body.number,
+  };
+
+  Person.findByIdAndUpdate(request.params.id, person, { new: true })
+    .then((updatedNote) => {
+      response.json(updatedNote);
+    })
+    .catch((error) => next(error));
+});
 
 app.post("/api/persons", (request, response) => {
-  const newPerson = {
-    id: generateId(),
-    name: "John Debonair",
-    number: "6789998212",
-  };
-  response.json(persons.concat(newPerson));
+  const body = request.body;
+  if (!body.name || !body.number) {
+    return response.status(400).json({
+      error: "Name or Number is missing",
+    });
+  }
+
+  const person = new Person({
+    name: body.name,
+    number: body.number,
+  });
+
+  person.save().then((savedPerson) => {
+    console.log(savedPerson);
+    response.json(savedPerson);
+  });
 });
 
-const PORT = 3001;
+const PORT = process.env.PORT;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+app.use(errorHandler);
