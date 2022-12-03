@@ -47,15 +47,18 @@ const App = () => {
       number: newNumber,
     };
 
-    personService.create(nameObject).then((newPerson) => {
-      setPersons(persons.concat(newPerson));
-      setNewName("");
-      setNewNumber("");
-      setSuccessMessage(`Added ${newPerson.name}`);
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
-    });
+    personService
+      .create(nameObject)
+      .then((newPerson) => {
+        setPersons(persons.concat(newPerson));
+        setNewName("");
+        setNewNumber("");
+        setSuccessMessage(`Added ${newPerson.name}`);
+        setTimeout(() => {
+          setSuccessMessage(null);
+        }, 3000);
+      })
+      .catch((error) => setErrorMessage(error.response.data.error));
   };
 
   const filteredPersons = persons.filter((person) => person.name === newFilter);
